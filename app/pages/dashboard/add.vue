@@ -3,11 +3,6 @@ import { InsertLocation } from '~/lib/db/schema';
 import { toTypedSchema } from '@vee-validate/zod'
 import type { FetchError } from 'ofetch'
 
-
-
-
-
-
 const { handleSubmit, errors, meta } = useForm({
     validationSchema: toTypedSchema(InsertLocation)
 })
