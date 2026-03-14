@@ -3,26 +3,36 @@ import { InsertLocation } from '~/lib/db/schema';
 import { toTypedSchema } from '@vee-validate/zod'
 import type { FetchError } from 'ofetch'
 
+const router = useRouter()
+const submitError = ref('')
+const loading = ref(false)
+const submitted = ref(false)
+
+const { $csrfFetch } = useNuxtApp()
+
 const { handleSubmit, errors, meta } = useForm({
     validationSchema: toTypedSchema(InsertLocation)
 })
 
 const onSubmit = handleSubmit(async (values) => {
     try {
-        const insertedData = await $fetch("/api/locations", {
+        submitError.value = ''
+        loading.value = true
+        await $csrfFetch("/api/locations", {
             method: 'POST',
             body: values
         })
-        console.log(insertedData)
+        submitted.value = true
+        navigateTo('/dashboard')
     } catch (e) {
         const error = e as FetchError
         submitError.value = error.statusMessage || 'An unknown error occured'
     }
-
+    loading.value = false
 })
 
 onBeforeRouteLeave(() => {
-    if (meta.value.dirty) {
+    if (meta.value.dirty && !submitted.value) {
         const confirm = window.confirm('Are you sure you want to leave? All unsaved changes will be lost.')
         if (!confirm) {
             return false
@@ -30,11 +40,6 @@ onBeforeRouteLeave(() => {
     }
     return true
 })
-
-const router = useRouter()
-
-const submitError = ref('')
-
 </script>
 
 
@@ -57,17 +62,19 @@ const submitError = ref('')
             <span>{{ submitError }}</span>
         </div>
         <form class="flex flex-col gap-2" @submit.prevent="onSubmit">
-            <AppFormField name="name" type="text" label="Name" :error="errors.name" />
-            <AppFormField name="description" type="textarea" label="Description" :error="errors.description" />
-            <AppFormField name="lat" type="number" label="Latitude" :error="errors.lat" />
-            <AppFormField name="long" type="number" label="Longitude" :error="errors.long" />
+            <AppFormField name="name" type="text" label="Name" :error="errors.name" :disabled="loading" />
+            <AppFormField name="description" type="textarea" label="Description" :error="errors.description"
+                :disabled="loading" />
+            <AppFormField name="lat" type="number" label="Latitude" :error="errors.lat" :disabled="loading" />
+            <AppFormField name="long" type="number" label="Longitude" :error="errors.long" :disabled="loading" />
             <div class="flex justify-end gap-2">
-                <button class="btn btn-outline" type="button" @click="router.back()">
+                <button :disabled="loading" class="btn btn-outline" type="button" @click="router.back()">
                     <Icon size="24" name="tabler:logout-2" />
                     Cancel
                 </button>
-                <button class="btn btn-primary" type="submit">Add
-                    <Icon size="24" name="tabler:circle-plus-filled" />
+                <button :disabled="loading" class="btn btn-primary" type="submit">Add
+                    <span v-if="loading" class="loading loading-spinner loading-sm" />
+                    <Icon v-else size="24" name="tabler:circle-plus-filled" />
                 </button>
             </div>
         </form>

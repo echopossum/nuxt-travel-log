@@ -1,6 +1,17 @@
-import { InsertLocation } from "~/lib/db/schema";
+import db from "~/lib/db";
+import { location, InsertLocation } from "~/lib/db/schema";
 
 export default defineEventHandler(async (event) => {
+  if (!event.context.user) {
+    return sendError(
+      event,
+      createError({
+        statusCode: 401,
+        statusMessage: "Unauthorized",
+      }),
+    );
+  }
+
   const result = await readValidatedBody(event, InsertLocation.safeParse);
 
   if (!result.success) {
@@ -17,5 +28,14 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  return result.data;
+  const [created] = await db
+    .insert(location)
+    .values({
+      ...result.data,
+      userId: event.context.user.id,
+      slug: result.data.name.replaceAll(" ", "-").toLowerCase(),
+    })
+    .returning();
+
+  return created;
 });
