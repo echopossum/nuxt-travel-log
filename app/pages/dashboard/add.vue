@@ -26,7 +26,10 @@ const onSubmit = handleSubmit(async (values) => {
         navigateTo("/dashboard");
     } catch (e) {
         const error = e as FetchError;
-        submitError.value = error.statusMessage || "An unknown error occured";
+        submitError.value =
+            error.data?.statusMessage ||
+            error.statusMessage ||
+            "An unknown error occured";
     }
     loading.value = false;
 });

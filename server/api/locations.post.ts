@@ -1,10 +1,11 @@
-import { eq, and, type DrizzleError } from "drizzle-orm";
+import { type DrizzleError } from "drizzle-orm";
 import slugify from "slug";
-import db from "~/lib/db";
-import { customAlphabet } from "nanoid";
-import { location, InsertLocation } from "~/lib/db/schema";
-
-const nanoid = customAlphabet("1234567890abcdefghijklmnopqrstuvwxyz", 5);
+import { InsertLocation } from "~/lib/db/schema";
+import {
+  findLocationByName,
+  findUniqueSlug,
+  insertLocation,
+} from "~/lib/db/queries/locations";
 
 export default defineEventHandler(async (event) => {
   if (!event.context.user) {
@@ -33,12 +34,10 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  const existingLocation = !!(await db.query.location.findFirst({
-    where: and(
-      eq(location.name, result.data.name),
-      eq(location.userId, event.context.user.id),
-    ),
-  }));
+  const existingLocation = !!(await findLocationByName(
+    result.data,
+    event.context.user.id,
+  ));
 
   if (existingLocation) {
     return sendError(
@@ -50,37 +49,11 @@ export default defineEventHandler(async (event) => {
     );
   }
 
-  let slug = slugify(result.data.name);
-  let existing = !!(await db.query.location.findFirst({
-    where: eq(location.slug, slug),
-  }));
-
-  console.log(existing);
-
-  while (existing) {
-    const id = nanoid();
-    const idSlug = `${slug}-${id}`;
-    existing = !!(await db.query.location.findFirst({
-      where: eq(location.slug, idSlug),
-    }));
-    console.log(existing);
-    if (!existing) {
-      slug = idSlug;
-    }
-  }
-
-  console.log(`result is ${slug}`);
+  const slug = await findUniqueSlug(slugify(result.data.name));
+  console.log(`Unique Slug is:${slug}`);
 
   try {
-    const [created] = await db
-      .insert(location)
-      .values({
-        ...result.data,
-        userId: event.context.user.id,
-        slug,
-      })
-      .returning();
-    return created;
+    return await insertLocation(result.data, slug, event.context.user.id);
   } catch (e) {
     const error = e as DrizzleError;
     if (
